@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "module": "esnext",
+    "removeComments": true,
+    "strict": true,
+    "alwaysStrict": false,
+    "esModuleInterop": true
+  },
+  "files": [
+    "npm-package-support-ts.user.ts"
+  ]
+}

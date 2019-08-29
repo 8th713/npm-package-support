@@ -1,0 +1,20 @@
+{
+  "name": "npm-package-support",
+  "version": "1.0.0",
+  "author": "8th713",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/8th713/npm-package-support/issues"
+  },
+  "homepage": "https://github.com/8th713/npm-package-support",
+  "private": true,
+  "readmeFilename": "README.md",
+  "scripts": {
+    "build": "tsc --outDir docs"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/tampermonkey": "^4.0.0",
+    "typescript": "^3.5.3"
+  }
+}
