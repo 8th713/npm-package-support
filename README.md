@@ -6,7 +6,7 @@ Inspired by [npm: package support types](https://gist.github.com/azu/ec22f3def09
 
 ## Install
 
-Install from [npm-package-support-ts.user.js]()
+Install from [npm-package-support-ts.user.js](https://8th713.github.io/npm-package-support/npm-package-support-ts.user.js)
 
 **Dependencies:**
 
