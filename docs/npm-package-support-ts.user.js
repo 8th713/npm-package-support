@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        npm package support TypeScript
 // @description Detects TypeScript support of npm package.
-// @version     1.0.0
+// @version     1.1.0
 // @author      8th713
 // @license     MIT
 // @namespace   http://github.com/8th713
@@ -62,10 +62,9 @@ const createTypePackageName = (pkgName) => {
     }
     return `@types/${pkgName}`;
 };
-const createLink = (pkg) => {
-    const name = pkg.name.slice(7);
+const createPkgLink = (pkg) => {
     const link = document.createElement('a');
-    link.href = `https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${name}`;
+    link.href = `/package/${pkg.name}`;
     link.textContent = pkg._id;
     return link;
 };
@@ -93,7 +92,7 @@ const main = async () => {
         if (!isPackage(typesPkgs))
             throw new Error('Does not support types');
         const typesPkg = getPackage(typesPkgs);
-        return insertToTop(createLink(typesPkg));
+        return insertToTop(createPkgLink(typesPkg));
     }
     catch (error) {
         insertToTop(error.message);
