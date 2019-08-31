@@ -67,6 +67,12 @@ const insertToTop = (...nodes: (string | Node)[]) => {
   top.firstElementChild!.insertAdjacentElement('beforebegin', p)
 }
 
+/**
+ * - /package/foo -> ['foo']
+ * - /package/@scope/foo -> ['@scope/foo']
+ * - /package/foo/v/1.0.0 -> ['foo','1.0.0']
+ * - /package/@scope/foo/v/1.0.0 -> ['@scope/foo','1.0.0']
+ */
 const getPackageName = (pathname: string) => {
   const path = pathname
     .split('/')
@@ -79,6 +85,10 @@ const getPackageName = (pathname: string) => {
   return [path]
 }
 
+/**
+ * - foo -> @types/foo
+ * - @scope/foo -> @types/scope__foo
+ */
 const createTypePackageName = (pkgName: string) => {
   if (pkgName.includes('@', 0)) {
     return `@types/${pkgName.slice(1).replace('/', '__')}`
@@ -86,11 +96,9 @@ const createTypePackageName = (pkgName: string) => {
   return `@types/${pkgName}`
 }
 
-const createLink = (pkg: Package) => {
-  // strip `@types/`
-  const name = pkg.name.slice(7)
+const createPkgLink = (pkg: Package) => {
   const link = document.createElement('a')
-  link.href = `https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/${name}`
+  link.href = `/package/${pkg.name}`
   link.textContent = pkg._id
   return link
 }
@@ -132,7 +140,7 @@ const main = async () => {
     if (!isPackage(typesPkgs)) throw new Error('Does not support types')
 
     const typesPkg = getPackage(typesPkgs)
-    return insertToTop(createLink(typesPkg))
+    return insertToTop(createPkgLink(typesPkg))
   } catch (error) {
     insertToTop(error.message)
   }
