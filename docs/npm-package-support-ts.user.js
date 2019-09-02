@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        npm package support TypeScript
 // @description Detects TypeScript support of npm package.
-// @version     1.1.0
+// @version     1.2.0
 // @author      8th713
 // @license     MIT
 // @namespace   http://github.com/8th713
@@ -14,6 +14,15 @@
 Inspired by npm: package support types
 https://gist.github.com/azu/ec22f3def09563ece54f8dc32523b152
 */
+const getPackageName = (pathname) => {
+    const [name, version] = pathname.split('/v/');
+    const fullName = name
+        .split('/')
+        .slice(2)
+        .join('/');
+    return [fullName, version];
+};
+const isDTPackage = (fullName) => fullName.startsWith('@types/');
 const fetchPackage = (packageName) => new Promise((resolve, reject) => {
     const path = packageName.replace(/\//g, '%2F');
     GM_xmlhttpRequest({
@@ -32,6 +41,21 @@ const fetchPackage = (packageName) => new Promise((resolve, reject) => {
         }
     });
 });
+const isPackage = (metadata) => Object.hasOwnProperty.call(metadata, 'dist-tags');
+const getPackage = (pkg, version = pkg['dist-tags'].latest) => pkg.versions[version];
+const hasTypeField = (pkg) => !!(pkg.types || pkg.typings);
+const createTypePackageName = (pkgName) => {
+    if (pkgName.includes('@', 0)) {
+        return `@types/${pkgName.slice(1).replace('/', '__')}`;
+    }
+    return `@types/${pkgName}`;
+};
+const createLink = (text, href) => {
+    const link = document.createElement('a');
+    link.href = href;
+    link.textContent = text;
+    return link;
+};
 const insertToTop = (...nodes) => {
     const top = document.querySelector('#top');
     if (!top) {
@@ -46,39 +70,14 @@ const insertToTop = (...nodes) => {
     p.append(...nodes);
     top.firstElementChild.insertAdjacentElement('beforebegin', p);
 };
-const getPackageName = (pathname) => {
-    const path = pathname
-        .split('/')
-        .slice(2)
-        .join('/');
-    if (path.includes('/v/')) {
-        return path.split('/v/');
-    }
-    return [path];
-};
-const createTypePackageName = (pkgName) => {
-    if (pkgName.includes('@', 0)) {
-        return `@types/${pkgName.slice(1).replace('/', '__')}`;
-    }
-    return `@types/${pkgName}`;
-};
-const createPkgLink = (pkg) => {
-    const link = document.createElement('a');
-    link.href = `/package/${pkg.name}`;
-    link.textContent = pkg._id;
-    return link;
-};
-const isPackage = (metadata) => Object.hasOwnProperty.call(metadata, 'dist-tags');
-const getPackage = (pkg, version = pkg['dist-tags'].latest) => pkg.versions[version];
-const hasTypeField = (pkg) => !!(pkg.types || pkg.typings);
 const hasDependency = (pkg, pkgName) => !!(pkg.dependencies && pkg.dependencies[pkgName]);
 const main = async () => {
     try {
         const [pkgName, version] = getPackageName(location.pathname);
-        if (pkgName.slice(0, 6) === '@types')
-            throw new Error('Package is type definitions');
         if (!pkgName)
             throw new Error('Not found package name');
+        if (isDTPackage(pkgName))
+            throw new Error('Package is type definitions');
         const pkgs = await fetchPackage(pkgName);
         if (!isPackage(pkgs))
             throw new Error('Failed to get package');
@@ -87,12 +86,12 @@ const main = async () => {
             return insertToTop('Package contains type definitions');
         const typeName = createTypePackageName(pkgName);
         if (hasDependency(pkg, typeName))
-            return insertToTop(`Package depends on ${typeName}`);
+            return insertToTop(`Package depends on`, createLink(typeName, `/package/${typeName}`));
         const typesPkgs = await fetchPackage(typeName);
         if (!isPackage(typesPkgs))
             throw new Error('Does not support types');
         const typesPkg = getPackage(typesPkgs);
-        return insertToTop(createPkgLink(typesPkg));
+        return insertToTop(createLink(typesPkg._id, `/package/${typeName}`));
     }
     catch (error) {
         insertToTop(error.message);

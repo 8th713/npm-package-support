@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        npm package support TypeScript
 // @description Detects TypeScript support of npm package.
-// @version     1.1.0
+// @version     1.2.0
 // @author      8th713
 // @license     MIT
 // @namespace   http://github.com/8th713
