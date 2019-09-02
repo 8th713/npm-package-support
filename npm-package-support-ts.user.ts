@@ -33,6 +33,24 @@ interface Packages {
   versions: { [version: string]: Package }
 }
 
+/**
+ * - /package/foo -> ['foo']
+ * - /package/@scope/foo -> ['@scope/foo']
+ * - /package/foo/v/1.0.0 -> ['foo','1.0.0']
+ * - /package/@scope/foo/v/1.0.0 -> ['@scope/foo','1.0.0']
+ */
+const getPackageName = (pathname: string) => {
+  const [name, version] = pathname.split('/v/')
+  const fullName = name
+    .split('/')
+    .slice(2)
+    .join('/')
+
+  return [fullName, version]
+}
+
+const isDTPackage = (fullName: string) => fullName.startsWith('@types/')
+
 const fetchPackage = (packageName: string) =>
   new Promise((resolve, reject) => {
     const path = packageName.replace(/\//g, '%2F')
@@ -52,6 +70,34 @@ const fetchPackage = (packageName: string) =>
     })
   })
 
+const isPackage = (metadata: unknown): metadata is Packages =>
+  Object.hasOwnProperty.call(metadata, 'dist-tags')
+
+/** Gets the specified `Package` of `Packages`. */
+const getPackage = (pkg: Packages, version: string = pkg['dist-tags'].latest) =>
+  pkg.versions[version]
+
+/** Checks if the `types` field or `typings` field exists in the `Package`. */
+const hasTypeField = (pkg: Package) => !!(pkg.types || pkg.typings)
+
+/**
+ * - foo -> @types/foo
+ * - @scope/foo -> @types/scope__foo
+ */
+const createTypePackageName = (pkgName: string) => {
+  if (pkgName.includes('@', 0)) {
+    return `@types/${pkgName.slice(1).replace('/', '__')}`
+  }
+  return `@types/${pkgName}`
+}
+
+const createLink = (text: string, href: string) => {
+  const link = document.createElement('a')
+  link.href = href
+  link.textContent = text
+  return link
+}
+
 const insertToTop = (...nodes: (string | Node)[]) => {
   const top = document.querySelector('#top')
   if (!top) {
@@ -67,52 +113,6 @@ const insertToTop = (...nodes: (string | Node)[]) => {
   top.firstElementChild!.insertAdjacentElement('beforebegin', p)
 }
 
-/**
- * - /package/foo -> ['foo']
- * - /package/@scope/foo -> ['@scope/foo']
- * - /package/foo/v/1.0.0 -> ['foo','1.0.0']
- * - /package/@scope/foo/v/1.0.0 -> ['@scope/foo','1.0.0']
- */
-const getPackageName = (pathname: string) => {
-  const path = pathname
-    .split('/')
-    .slice(2)
-    .join('/')
-
-  if (path.includes('/v/')) {
-    return path.split('/v/')
-  }
-  return [path]
-}
-
-/**
- * - foo -> @types/foo
- * - @scope/foo -> @types/scope__foo
- */
-const createTypePackageName = (pkgName: string) => {
-  if (pkgName.includes('@', 0)) {
-    return `@types/${pkgName.slice(1).replace('/', '__')}`
-  }
-  return `@types/${pkgName}`
-}
-
-const createPkgLink = (pkg: Package) => {
-  const link = document.createElement('a')
-  link.href = `/package/${pkg.name}`
-  link.textContent = pkg._id
-  return link
-}
-
-const isPackage = (metadata: unknown): metadata is Packages =>
-  Object.hasOwnProperty.call(metadata, 'dist-tags')
-
-/** Gets the specified `Package` of `Packages`. */
-const getPackage = (pkg: Packages, version: string = pkg['dist-tags'].latest) =>
-  pkg.versions[version]
-
-/** Checks if the `types` field or `typings` field exists in the `Package`. */
-const hasTypeField = (pkg: Package) => !!(pkg.types || pkg.typings)
-
 /** Checks if the specified package exists in the `Package`'s dependency. */
 const hasDependency = (pkg: Package, pkgName: string) =>
   !!(pkg.dependencies && pkg.dependencies[pkgName])
@@ -120,10 +120,8 @@ const hasDependency = (pkg: Package, pkgName: string) =>
 const main = async () => {
   try {
     const [pkgName, version] = getPackageName(location.pathname)
-    if (pkgName.slice(0, 6) === '@types')
-      throw new Error('Package is type definitions')
-
     if (!pkgName) throw new Error('Not found package name')
+    if (isDTPackage(pkgName)) throw new Error('Package is type definitions')
 
     const pkgs = await fetchPackage(pkgName)
     if (!isPackage(pkgs)) throw new Error('Failed to get package')
@@ -134,13 +132,16 @@ const main = async () => {
 
     const typeName = createTypePackageName(pkgName)
     if (hasDependency(pkg, typeName))
-      return insertToTop(`Package depends on ${typeName}`)
+      return insertToTop(
+        `Package depends on`,
+        createLink(typeName, `/package/${typeName}`)
+      )
 
     const typesPkgs = await fetchPackage(typeName)
     if (!isPackage(typesPkgs)) throw new Error('Does not support types')
 
     const typesPkg = getPackage(typesPkgs)
-    return insertToTop(createPkgLink(typesPkg))
+    return insertToTop(createLink(typesPkg._id, `/package/${typeName}`))
   } catch (error) {
     insertToTop(error.message)
   }
