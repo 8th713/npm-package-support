@@ -2,9 +2,15 @@
   "compilerOptions": {
     "target": "es2017",
     "module": "esnext",
+    "outDir": "docs",
     "removeComments": true,
     "strict": true,
     "alwaysStrict": false,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "moduleResolution": "node",
     "esModuleInterop": true
   },
   "files": [

@@ -46,9 +46,9 @@ npm run build
 yarn build
 
 # Watch
-npm run build -- -w
+npm run watch
 # or
-yarn build -w
+yarn watch
 ```
 
 ## License

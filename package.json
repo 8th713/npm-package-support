@@ -10,7 +10,8 @@
   "private": true,
   "readmeFilename": "README.md",
   "scripts": {
-    "build": "tsc --outDir docs"
+    "build": "tsc",
+    "watch": "tsc -w"
   },
   "dependencies": {},
   "devDependencies": {
