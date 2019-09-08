@@ -5,6 +5,7 @@
 // @version     1.2.0
 // @author      8th713
 // @license     MIT
+// @homepage    https://github.com/8th713/npm-package-support
 // @namespace   http://github.com/8th713
 // @match       https://www.npmjs.com/package/*
 // @grant       GM_xmlhttpRequest
