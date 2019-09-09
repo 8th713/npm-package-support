@@ -2,7 +2,7 @@
 // ==UserScript==
 // @name        npm package support TypeScript
 // @description Detects TypeScript support of npm package.
-// @version     1.2.1
+// @version     1.3.0
 // @author      8th713
 // @license     MIT
 // @homepage    https://github.com/8th713/npm-package-support
@@ -16,22 +16,44 @@ Inspired by npm: package support types
 https://gist.github.com/azu/ec22f3def09563ece54f8dc32523b152
 */
 const getPackageName = (pathname) => {
-    const [name, version] = pathname.split('/v/');
-    const fullName = name
+    const [path, version] = pathname.split('/v/');
+    const name = path
         .split('/')
         .slice(2)
         .join('/');
-    return [fullName, version];
+    return [name, version];
 };
-const isDTPackage = (fullName) => fullName.startsWith('@types/');
-const fetchPackage = (packageName) => new Promise((resolve, reject) => {
-    const path = packageName.replace(/\//g, '%2F');
+const isDTPackage = (name) => name.startsWith('@types/');
+const escapeSlash = (str) => str.replace(/\//g, '%2F');
+const createTypePackageName = (pkgName) => {
+    if (pkgName.startsWith('@')) {
+        return `@types/${pkgName.slice(1).replace('/', '__')}`;
+    }
+    return `@types/${pkgName}`;
+};
+const isPackument = (metadata) => Object.hasOwnProperty.call(metadata, 'dist-tags');
+const getPackage = (pkg, version = pkg['dist-tags'].latest) => pkg.versions[version];
+const hasTypeField = (pkg) => !!(pkg.types || pkg.typings);
+const hasDependency = (pkg, pkgName) => !!(pkg.dependencies && pkg.dependencies[pkgName]);
+const CACHE = {};
+const fetchPackument = (packageName) => new Promise((resolve, reject) => {
+    if (CACHE[packageName]) {
+        return resolve(CACHE[packageName]);
+    }
+    const path = escapeSlash(packageName);
     GM_xmlhttpRequest({
         method: 'GET',
         url: `https://registry.npmjs.com/${path}`,
         onload(response) {
             try {
-                resolve(JSON.parse(response.responseText));
+                const json = JSON.parse(response.responseText);
+                if (isPackument(json)) {
+                    CACHE[packageName] = json;
+                    resolve(json);
+                }
+                else {
+                    reject(json);
+                }
             }
             catch (error) {
                 reject(error);
@@ -42,15 +64,7 @@ const fetchPackage = (packageName) => new Promise((resolve, reject) => {
         }
     });
 });
-const isPackage = (metadata) => Object.hasOwnProperty.call(metadata, 'dist-tags');
-const getPackage = (pkg, version = pkg['dist-tags'].latest) => pkg.versions[version];
-const hasTypeField = (pkg) => !!(pkg.types || pkg.typings);
-const createTypePackageName = (pkgName) => {
-    if (pkgName.includes('@', 0)) {
-        return `@types/${pkgName.slice(1).replace('/', '__')}`;
-    }
-    return `@types/${pkgName}`;
-};
+const ID = 'npm-package-support';
 const createLink = (text, href) => {
     const link = document.createElement('a');
     link.href = href;
@@ -64,44 +78,52 @@ const insertToTop = (...nodes) => {
     }
     const p = document.createElement('p');
     const span = document.createElement('span');
-    p.id = 'npm-package-support';
+    p.id = ID;
     span.setAttribute('style', 'color:green');
     span.textContent = 'TYPE: ';
     p.append(span);
     p.append(...nodes);
     top.firstElementChild.insertAdjacentElement('beforebegin', p);
 };
-const hasDependency = (pkg, pkgName) => !!(pkg.dependencies && pkg.dependencies[pkgName]);
+const cleanup = () => {
+    const p = document.getElementById(ID);
+    if (p)
+        p.remove();
+};
+const patchHistoryEvents = () => {
+    const events = ['pushState', 'replaceState'];
+    events.forEach(type => {
+        const original = history[type];
+        history[type] = (...args) => {
+            original.apply(history, args);
+            dispatchEvent(new Event(type));
+        };
+    });
+};
 const main = async () => {
+    cleanup();
     try {
-        const [pkgName, version] = getPackageName(location.pathname);
-        if (!pkgName)
+        const [name, version] = getPackageName(location.pathname);
+        if (!name)
             throw new Error('Not found package name');
-        if (isDTPackage(pkgName))
+        if (isDTPackage(name))
             throw new Error('Package is type definitions');
-        const pkgs = await fetchPackage(pkgName);
-        if (!isPackage(pkgs))
-            throw new Error('Failed to get package');
-        const pkg = getPackage(pkgs, version);
+        const packument = await fetchPackument(name).catch(() => Promise.reject(new Error('Failed to get package')));
+        const pkg = getPackage(packument, version);
         if (hasTypeField(pkg))
             return insertToTop('Package contains type definitions');
-        const typeName = createTypePackageName(pkgName);
+        const typeName = createTypePackageName(name);
         if (hasDependency(pkg, typeName))
             return insertToTop(`Package depends on`, createLink(typeName, `/package/${typeName}`));
-        const typesPkgs = await fetchPackage(typeName);
-        if (!isPackage(typesPkgs))
-            throw new Error('Does not support types');
-        const typesPkg = getPackage(typesPkgs);
+        const typesPackument = await fetchPackument(typeName).catch(() => Promise.reject(new Error('Does not support types')));
+        const typesPkg = getPackage(typesPackument);
         return insertToTop(createLink(typesPkg._id, `/package/${typeName}`));
     }
     catch (error) {
         insertToTop(error.message);
     }
 };
+patchHistoryEvents();
+const events = ['pushState', 'replaceState'];
+events.forEach(eventName => addEventListener(eventName, main));
 main();
-window.addEventListener('popstate', () => {
-    const p = document.getElementById('npm-package-support');
-    if (p)
-        p.remove();
-    main();
-});
